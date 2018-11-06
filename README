@@ -1,0 +1,11 @@
+Install Django:
+pip install django
+
+Install Django Rest Framework:
+pip install djangorestframework
+
+Run server:
+python manage.py runserver
+
+Server will run at:
+http://127.0.0.1:8000/

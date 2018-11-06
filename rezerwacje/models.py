@@ -14,8 +14,8 @@ class Reservations(models.Model):
     room = models.ForeignKey(Rooms, on_delete=models.CASCADE, default=None, related_name='room')
     name = models.CharField(max_length=50)
     surname = models.CharField(max_length=100)
-    check_in = models.DateField()
-    check_out = models.DateField()
+    check_in = models.DateTimeField()
+    check_out = models.DateTimeField()
     people = models.IntegerField()
 
     def clean(self, *args, **kwargs):
