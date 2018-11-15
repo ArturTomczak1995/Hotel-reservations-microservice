@@ -7,27 +7,44 @@ from rest_framework.response import Response
 from datetime import datetime
 import json
 from urllib import request, parse
+import time
+import requests
 
-ip_facilities = ""
+ip_facilities = "http://127.0.0.1:8095"
 
 
 def get_facilities(facilities):
-    url = 'https://learnwebcode.github.io/json-example/animals-1.json'
-    # url = ip_facilities + '/getFacilities?used=false' # POBIERA INFORMACJE O UDOGODNIENIACH
+    url = ip_facilities + '/get-all-facilities'
     serialized_data = request.urlopen(url)
-    data = json.loads(serialized_data.read())[0]  # moze nie wymagac[0]
-    lack_facility = []
+    data = json.loads(serialized_data.read())
     if not bool(facilities):
         return True
     else:
-        for facility in facilities:
-            if facility in data:  # moze tu data["facility"]
-                pass
-            else:
-                lack_facility.append(facility)
-        if lack_facility:
-            return lack_facility
-        return True
+        for facility in data:
+            if facility["type"] == facilities:
+                if facility["isActive"]:
+                    return True
+        return False
+
+
+def reserve_facilities(facilities, start_date, end_date):
+    url = ip_facilities + '/add-facility-reservation'
+    start_date = (time.mktime(start_date.timetuple()))
+    end_date = (time.mktime(end_date.timetuple()))
+    for i in facilities:
+        data = {
+            "start_date": start_date,
+            "end_date": end_date,
+            "room_id": 1,
+            "facility_type": i
+        }
+        response = requests.post(url, json=data)
+        if response.status_code != requests.codes.ok:
+            print("false")
+            return False
+    return True
+
+
 
 
 def format_time(input_data):
@@ -107,9 +124,17 @@ def getBookings(request):
                     fake_data["check_out"] = format_time(fake_data2["check_out"])
                     serializer = AllReservationsSerializer(data=fake_data)
                     serializer.is_valid()
-                    facility = get_facilities(request.data["facilities"])
-                    if facility == True:
-                        serializer.save()
+                    facility_flag = 0
+                    for i in request.data["facilities"]:
+                        facility = get_facilities(i)
+                        if facility:
+                            facility_flag += 1
+                        else:
+                            facility = i
+                            break
+                    if facility_flag == len(request.data["facilities"]):
+                        reserve_facilities(request.data["facilities"], fake_data["check_in"], fake_data["check_out"])
+                        # serializer.save()
                         return Response({"status": 200, "room": rooms[0], "result": True},
                                         status=status.HTTP_201_CREATED)
                     else:
