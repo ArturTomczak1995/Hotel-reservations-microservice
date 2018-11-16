@@ -25,7 +25,7 @@ class UpdateReservationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Reservations
-        fields = ["name", "surname", "people"]
+        fields = ["name", "surname"]
 
 
 

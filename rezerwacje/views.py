@@ -111,6 +111,9 @@ def get_bookings(get_bookings_request):
 def room_booking(booking_request):
     serializer = AllReservationsSerializer(data=booking_request.data, partial=True)
     if serializer.is_valid():
+        rooms = is_available(serializer)
+        if not rooms:
+            return Response({"status": 200, "result": False}, status=200)
         serializer_copy = serializer.data.copy()
         serializer_copy["check_in"] = format_time(serializer_copy["check_in"])
         serializer_copy["check_out"] = format_time(serializer_copy["check_out"])
@@ -118,10 +121,9 @@ def room_booking(booking_request):
         facility_reservation = reserve_facility(facility, serializer_copy["check_in"], serializer_copy["check_out"])
         if not facility_reservation:
             return Response({"status": 200, "result": False, "lack of facility": facility}, status=200)
-        rooms = is_available(serializer)
+
         serializer_copy["room"] = rooms
-        if not rooms:
-            return Response({"status": 200, "result": False}, status=200)
+
         serializer = BookRoomSerializer(data=serializer_copy)
         if facility_reservation and serializer.is_valid():
             serializer.save()
