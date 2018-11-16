@@ -14,6 +14,13 @@ class AllReservationsSerializer(serializers.ModelSerializer):
         fields = ["name", "surname", "check_in", "check_out", "people"]
 
 
+class BookRoomSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Reservations
+        time = serializers.DateField(format="%Y-%m-%d %H:%M")
+        fields = ["room", "name", "surname", "check_in", "check_out", "people"]
+
+
 class UpdateReservationSerializer(serializers.ModelSerializer):
 
     class Meta:
