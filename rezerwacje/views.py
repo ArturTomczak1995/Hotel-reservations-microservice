@@ -1,4 +1,4 @@
-from .models import Reservations, Rooms
+from .models import Reservations
 from .serializers import ReservationsSerializer, AllReservationsSerializer, UpdateReservationSerializer
 from rest_framework import generics
 from rest_framework import status
@@ -6,7 +6,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from datetime import datetime
 import json
-from urllib import request, parse
+from urllib import request
 import time
 import requests
 
@@ -27,24 +27,36 @@ def get_facilities(facilities):
         return False
 
 
-def reserve_facilities(facilities, start_date, end_date):
+def reserve_facility(facility, start_date, end_date):
     url = ip_facilities + '/add-facility-reservation'
     start_date = (time.mktime(start_date.timetuple()))
     end_date = (time.mktime(end_date.timetuple()))
-    for i in facilities:
-        data = {
-            "start_date": start_date,
-            "end_date": end_date,
-            "room_id": 1,
-            "facility_type": i
-        }
-        response = requests.post(url, json=data)
-        if response.status_code != requests.codes.ok:
-            print("false")
-            return False
+    data = {
+        "start_date": start_date,
+        "end_date": end_date,
+        "room_id": 1,
+        "facility_type": facility
+    }
+    response = requests.post(url, json=data)
+    resp_dict = json.loads(response.text)
+    if resp_dict["status"] != "success":
+        return False
     return True
 
 
+def get_rooms(capacity):
+    url = ip_facilities + '/get-all-rooms'
+    serialized_data = request.urlopen(url)
+    data = json.loads(serialized_data.read())
+    room_number = []
+    for room in data:
+        if room["number"]:
+            if room["capacity"] == capacity:
+                room_number.append(room["number"])
+    if room_number:
+        return room_number
+    else:
+        return False
 
 
 def format_time(input_data):
@@ -53,8 +65,33 @@ def format_time(input_data):
     tail = s[-2:]
     f = round(float(tail), -1)
     temp = "%i" % f
-    formated_date = datetime.strptime("%s%s" % (s[:-2], temp), "%Y-%m-%d %H:%M")
-    return formated_date
+    formatted_date = datetime.strptime("%s%s" % (s[:-2], temp), "%Y-%m-%d %H:%M")
+    return formatted_date
+
+
+def get_strptime(date):
+    return datetime.strptime(date, '%Y-%m-%d %H:%M')
+
+
+def is_available(serializer):
+    rooms = get_rooms(serializer.data["people"])
+    for reservation in Reservations.objects.all():
+        check_in_date = get_strptime(reservation.check_in.strftime('%Y-%m-%d %H:%M'))
+        check_out_date = get_strptime(reservation.check_out.strftime('%Y-%m-%d %H:%M'))
+        proposed_date_in = get_strptime(serializer.data["check_in"])
+        proposed_date_out = get_strptime(serializer.data["check_out"])
+        if proposed_date_in >= proposed_date_out:
+            return Response({"status": status.HTTP_400_BAD_REQUEST, "result": False},
+                            status=status.HTTP_406_NOT_ACCEPTABLE)
+        if rooms:
+            if check_in_date <= proposed_date_in <= check_out_date:
+                rooms.remove(int(reservation.room))
+            if check_in_date <= proposed_date_out <= check_out_date:
+                rooms.remove(int(reservation.room))
+    if rooms:
+        return rooms[0]
+    else:
+        return Response({"status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ReservationsLit(generics.ListCreateAPIView):
@@ -82,7 +119,6 @@ def reservation_list(request, check_in_year, check_in_month, check_in_day):
             return Response({"status": status.HTTP_500_INTERNAL_SERVER_ERROR})
 
 
-### BOOK A ROOM OR CHECK ALL RESERVED ROOMS
 @api_view(['GET', 'POST'])
 def getBookings(request):
     if request.method == 'GET':
@@ -96,54 +132,27 @@ def getBookings(request):
     elif request.method == 'POST':
         serializer = AllReservationsSerializer(data=request.data, partial=True)
         if serializer.is_valid():
-            try:
-                rooms = []
-                for room in Rooms.objects.all():
-                    rooms.append(room.room_no)
-                for reservation in Reservations.objects.all():
-                    check_inDate = datetime.strptime(reservation.check_in.strftime('%Y-%m-%d %H:%M'), '%Y-%m-%d %H:%M')
-                    check_outDate = datetime.strptime(reservation.check_out.strftime('%Y-%m-%d %H:%M'),
-                                                      '%Y-%m-%d %H:%M')
-                    proposedDateIN = datetime.strptime(serializer.data["check_in"], '%Y-%m-%d %H:%M')
-                    proposedDateOUT = datetime.strptime(serializer.data["check_out"], '%Y-%m-%d %H:%M')
-                    if (proposedDateIN >= proposedDateOUT):
-                        return Response({"status": status.HTTP_400_BAD_REQUEST, "result": False},
-                                        status=status.HTTP_406_NOT_ACCEPTABLE)
-                    try:
-                        if check_inDate <= proposedDateIN <= check_outDate:
-                            rooms.remove(int(reservation.room.pk))
-                        if check_inDate <= proposedDateOUT <= check_outDate:
-                            rooms.remove(int(reservation.room.pk))
-                    except:
-                        pass
+                rooms = is_available(serializer)
                 try:
-                    fake_data = serializer.data.copy()
-                    fake_data2 = serializer.data.copy()
-                    fake_data["room"] = rooms[0]
-                    fake_data["check_in"] = format_time(fake_data2["check_in"])
-                    fake_data["check_out"] = format_time(fake_data2["check_out"])
-                    serializer = AllReservationsSerializer(data=fake_data)
-                    serializer.is_valid()
-                    facility_flag = 0
-                    for i in request.data["facilities"]:
-                        facility = get_facilities(i)
-                        if facility:
-                            facility_flag += 1
-                        else:
-                            facility = i
-                            break
-                    if facility_flag == len(request.data["facilities"]):
-                        reserve_facilities(request.data["facilities"], fake_data["check_in"], fake_data["check_out"])
+                    serializer_copy = serializer.data.copy()
+                    serializer_copy["room"] = rooms
+                    serializer_copy["check_in"] = format_time(serializer_copy["check_in"])
+                    serializer_copy["check_out"] = format_time(serializer_copy["check_out"])
+                    serializer = AllReservationsSerializer(data=serializer_copy)
+                    facility_reservation = reserve_facility(request.data["facilities"], serializer_copy["check_in"],
+                                                            serializer_copy["check_out"])
+                    if facility_reservation and serializer.is_valid():
                         # serializer.save()
                         return Response({"status": 200, "room": rooms[0], "result": True},
                                         status=status.HTTP_201_CREATED)
                     else:
-                        return Response({"status": 200, "result": False, "lack of facility": facility},
+                        return Response({"status": 200, "result": False, "lack of facility": request.data["facilities"]},
                                         status=status.HTTP_409_CONFLICT)
                 except:
                     return Response({"status": 200, "result": False}, status=status.HTTP_406_NOT_ACCEPTABLE)
-            except:
-                return Response({"status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response({"status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 @api_view(['PUT', 'DELETE'])
@@ -159,17 +168,13 @@ def room_detail(request, pk, check_in_year, check_in_month, check_in_day):
     if request.method == 'PUT':
         serializer = UpdateReservationSerializer(room, data=request.data)
         if serializer.is_valid():
-            # facility = get_facilities(request.data["facilities"])
-            # if facility == True:
             serializer.save()
             return Response({"status": 200, "result": True}, status=status.HTTP_201_CREATED)
-            # else:
-            #     return Response({ "status": 200, "result": False, "lack of facility": facility}, status=status.HTTP_409_CONFLICT)
         return Response({"status": 400}, status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == 'DELETE':
         room.delete()
         # facility = request.data["facilities"]
-        # data = parse.urlencode({"facilities": facility}).encode()Ł
+        # data = parse.urlencode({"facilities": facility}).encode()
         # request.Request(ip_facilities+"/deleteFacility", data=data)
         return Response({"status": status.HTTP_200_OK, "result": True})

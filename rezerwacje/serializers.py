@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Reservations, Rooms
+from .models import Reservations
 
 class ReservationsSerializer(serializers.ModelSerializer):
     class Meta:
@@ -11,7 +11,7 @@ class AllReservationsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Reservations
         time = serializers.DateField(format="%Y-%m-%d %H:%M")
-        fields = ["name", "surname", "check_in", "check_out", "people", "room"]
+        fields = ["name", "surname", "check_in", "check_out", "people"]
 
 
 class UpdateReservationSerializer(serializers.ModelSerializer):
