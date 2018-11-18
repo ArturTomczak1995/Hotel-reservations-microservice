@@ -28,14 +28,14 @@ def get_facilities(facilities):
         return False
 
 
-def reserve_facility(facility, start_date, end_date):
+def reserve_facility(facility, start_date, end_date, rooms):
     url = ip_facilities + '/add-facility-reservation'
     start_date = (time.mktime(start_date.timetuple()))
     end_date = (time.mktime(end_date.timetuple()))
     data = {
         "start_date": start_date,
         "end_date": end_date,
-        "room_id": 1,
+        "room_id": rooms,
         "facility_type": facility
     }
     response = requests.post(url, json=data)
@@ -118,11 +118,12 @@ def room_booking(booking_request):
         serializer_copy["check_in"] = format_time(serializer_copy["check_in"])
         serializer_copy["check_out"] = format_time(serializer_copy["check_out"])
         facility = booking_request.data["facilities"]
-        facility_reservation = reserve_facility(facility, serializer_copy["check_in"], serializer_copy["check_out"])
+        facility_reservation = reserve_facility(facility, serializer_copy["check_in"], serializer_copy["check_out"], rooms)
         if not facility_reservation:
             return Response({"status": 200, "result": False, "lack of facility": facility}, status=200)
 
         serializer_copy["room"] = rooms
+        serializer_copy["facility_type"] = facility
 
         serializer = BookRoomSerializer(data=serializer_copy)
         if facility_reservation and serializer.is_valid():
@@ -132,6 +133,25 @@ def room_booking(booking_request):
             return Response({"status": 200, "result": False, "lack of facility": facility}, status=200)
     else:
         return Response({"status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
+
+
+def cancel_facility_reservation(room):
+    url = ip_facilities + '/cancel-facility-reservation'
+    start_date = (time.mktime(room.check_in.timetuple()))
+    end_date = (time.mktime(room.check_out.timetuple()))
+    data = {
+        "start_date": start_date,
+        "end_date": end_date,
+        "room_id": room.room,
+        "facility_type": room.facility_type
+    }
+    response = requests.post(url, json=data)
+    resp_dict = json.loads(response.text)
+    try:
+        if resp_dict["status"] == "success":
+            return True
+    except KeyError:
+        return False
 
 
 @api_view(['PUT', 'DELETE'])
@@ -149,8 +169,9 @@ def room_detail(room_detail_request, room_no, year, month, day):
         return Response({"status": 400}, status=status.HTTP_400_BAD_REQUEST)
 
     elif room_detail_request.method == 'DELETE':
-        room.delete()
-        # facility = request.data["facilities"]
-        # data = parse.urlencode({"facilities": facility}).encode()
-        # request.Request(ip_facilities+"/deleteFacility", data=data)
-        return Response({"status": status.HTTP_200_OK, "result": True})
+        cancel_facility = cancel_facility_reservation(room)
+        if cancel_facility:
+            room.delete()
+            return Response({"status": status.HTTP_200_OK, "result": True})
+        else:
+            return Response({"status": status.HTTP_406_NOT_ACCEPTABLE, "result": False})
