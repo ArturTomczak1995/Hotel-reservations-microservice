@@ -12,10 +12,14 @@ from django.core.exceptions import ObjectDoesNotExist
 import requests
 
 ip_facilities = "http://127.0.0.1:8095"
+get_all_facilities_path = '/get-all-facilities'
+add_facility_reservation_path = '/add-facility-reservation'
+cancel_facility_path = '/cancel-facility-reservation'
+get_all_rooms_path = '/get-all-rooms'
 
 
 def get_facilities(facilities):
-    url = ip_facilities + '/get-all-facilities'
+    url = ip_facilities + get_all_facilities_path
     serialized_data = request.urlopen(url)
     data = json.loads(serialized_data.read())
     if not bool(facilities):
@@ -48,7 +52,7 @@ def facility_add_delete(path, start_date, end_date, rooms, facility):
 
 
 def get_rooms(capacity):
-    url = ip_facilities + '/get-all-rooms'
+    url = ip_facilities + get_all_rooms_path
     serialized_data = request.urlopen(url)
     data = json.loads(serialized_data.read())
     room_number = []
@@ -111,23 +115,25 @@ def get_bookings(get_bookings_request):
 
 @api_view(['POST'])
 def room_booking(booking_request):
-    reserve_facility_url = '/add-facility-reservation'
     serializer = AllReservationsSerializer(data=booking_request.data, partial=True)
     if serializer.is_valid():
+        facility_reservation = True
         rooms = is_available(serializer)
         if not rooms:
             return Response({"status": 200, "result": False}, status=200)
         serializer_copy = serializer.data.copy()
         serializer_copy["check_in"] = format_time(serializer_copy["check_in"])
         serializer_copy["check_out"] = format_time(serializer_copy["check_out"])
-        facility = booking_request.data["facilities"]
-        facility_reservation = facility_add_delete(reserve_facility_url, serializer_copy["check_in"],
-                                                   serializer_copy["check_out"], rooms, facility)
-        if not facility_reservation:
-            return Response({"status": 200, "result": False, "lack of facility": facility}, status=200)
-
+        try:
+            facility = booking_request.data["facilities"]
+            facility_reservation = facility_add_delete(add_facility_reservation_path, serializer_copy["check_in"],
+                                                       serializer_copy["check_out"], rooms, facility)
+            if not facility_reservation:
+                return Response({"status": 200, "result": False, "lack of facility": facility}, status=200)
+            serializer_copy["facility_type"] = facility
+        except KeyError:
+            pass
         serializer_copy["room"] = rooms
-        serializer_copy["facility_type"] = facility
 
         serializer = BookRoomSerializer(data=serializer_copy)
         if facility_reservation and serializer.is_valid():
@@ -154,9 +160,10 @@ def room_detail(room_detail_request, room_no, year, month, day):
         return Response({"status": 400}, status=status.HTTP_400_BAD_REQUEST)
 
     elif room_detail_request.method == 'DELETE':
-        cancel_facility_url = '/cancel-facility-reservation'
-        cancel_facility = facility_add_delete(cancel_facility_url, room.check_in, room.check_out, room.room,
-                                              room.facility_type)
+        cancel_facility = True
+        if room.facility_type != -1:
+            cancel_facility = facility_add_delete(cancel_facility_path, room.check_in, room.check_out, room.room,
+                                                  room.facility_type)
         if cancel_facility:
             room.delete()
             return Response({"status": status.HTTP_200_OK, "result": True})

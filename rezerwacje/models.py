@@ -10,7 +10,7 @@ class Reservations(models.Model):
     check_in = models.DateTimeField()
     check_out = models.DateTimeField()
     people = models.IntegerField()
-    facility_type = models.IntegerField(default=None)
+    facility_type = models.IntegerField(default=-1)
 
     def clean(self, *args, **kwargs):
         super(Reservations, self).clean(*args, **kwargs)
