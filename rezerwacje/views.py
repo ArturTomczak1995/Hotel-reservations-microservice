@@ -1,8 +1,6 @@
-from urllib.request import ProxyHandler, build_opener, install_opener
-
 from .models import Reservations
 from .serializers import ReservationsSerializer, AllReservationsSerializer, UpdateReservationSerializer, \
-    BookRoomSerializer
+    BookRoomSerializer, EverythingFromDatabaseReservationsSerializer
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -19,9 +17,17 @@ add_facility_reservation_path = '/add-facility-reservation'
 cancel_facility_path = '/cancel-facility-reservation'
 get_all_rooms_path = '/get-all-rooms'
 
-proxy_support = ProxyHandler({"http":"http://127.0.0.1:8000"})
-opener = build_opener(proxy_support)
-install_opener(opener)
+
+@api_view(['GET'])
+def all_rooms(request_all):
+    if request_all.method == 'GET':
+        try:
+            reservations = Reservations.objects.all().order_by("check_in")
+            serializer = EverythingFromDatabaseReservationsSerializer(reservations, many=True)
+            return Response(serializer.data)
+        except:
+            return Response({"status": status.HTTP_500_INTERNAL_SERVER_ERROR})
+
 
 def get_facilities(facilities):
     url = ip_facilities + get_all_facilities_path
