@@ -6,6 +6,7 @@ pip install djangorestframework
 
 Run server:
 python manage.py runserver
+pip install requests
 
 Server will run at:
 http://127.0.0.1:8000/
