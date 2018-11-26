@@ -1,3 +1,5 @@
+from urllib.request import ProxyHandler, build_opener, install_opener
+
 from .models import Reservations
 from .serializers import ReservationsSerializer, AllReservationsSerializer, UpdateReservationSerializer, \
     BookRoomSerializer
@@ -17,6 +19,9 @@ add_facility_reservation_path = '/add-facility-reservation'
 cancel_facility_path = '/cancel-facility-reservation'
 get_all_rooms_path = '/get-all-rooms'
 
+proxy_support = ProxyHandler({"http":"http://127.0.0.1:8000"})
+opener = build_opener(proxy_support)
+install_opener(opener)
 
 def get_facilities(facilities):
     url = ip_facilities + get_all_facilities_path

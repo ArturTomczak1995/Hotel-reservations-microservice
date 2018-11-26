@@ -20,7 +20,3 @@ class Reservations(models.Model):
 
     def __str__(self):
         return self.surname + ' - ' + str(self.check_in)
-
-
-
-
