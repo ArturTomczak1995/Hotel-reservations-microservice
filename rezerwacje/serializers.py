@@ -29,5 +29,11 @@ class UpdateReservationSerializer(serializers.ModelSerializer):
         fields = ["name", "surname"]
 
 
+class EverythingFromDatabaseReservationsSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Reservations
+        fields = '__all__'
+
 
 
