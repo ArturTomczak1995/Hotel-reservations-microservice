@@ -1,0 +1,5 @@
+django>=2.1
+psycopg2
+djangorestframework==3.8.2
+requests
+gunicorn==19.6.0
