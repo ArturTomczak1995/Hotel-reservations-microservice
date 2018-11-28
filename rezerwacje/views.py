@@ -11,7 +11,8 @@ import time
 from django.core.exceptions import ObjectDoesNotExist
 import requests
 
-ip_facilities = "http://127.0.0.1:8095"
+
+ip_facilities = "http://host.docker.internal:8095"
 get_all_facilities_path = '/get-all-facilities'
 add_facility_reservation_path = '/add-facility-reservation'
 cancel_facility_path = '/cancel-facility-reservation'
