@@ -4,6 +4,7 @@
 ## Install Django Rest Framework:
 * $ pip install djangorestframework
 * $ pip install requests
+* $ django-request-logging
 * $ python manage.py runserver 8000
 ### Server will run at:
 ```sh

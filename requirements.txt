@@ -3,3 +3,4 @@ psycopg2
 djangorestframework==3.8.2
 requests
 gunicorn==19.6.0
+django-request-logging
